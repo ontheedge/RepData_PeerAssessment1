@@ -5,7 +5,7 @@ output:
     keep_md: yes
 ---
 
-```{r message = FALSE}
+```{r}
 library(dplyr)
 library(ggplot2)
 ```
@@ -158,6 +158,9 @@ p
 ```
 
 ```{r}
+```
+
+```{r}
 mean(activity.by.day$total_steps)
 median(activity.by.day$total_steps)
 mean(activity.by.day.filled$total_steps)
@@ -167,11 +170,22 @@ median(activity.by.day.filled$total_steps)
 #### Visualization of the difference
 
 ```{r}
-p <- ggplot(rbind(cbind(dataset = "original", activity.by.day),
-                  cbind(dataset = "filed", activity.by.day.filled)),
+activity.by.day.both <- rbind(cbind(dataset = "original", activity.by.day),
+                  cbind(dataset = "filed", activity.by.day.filled))
+p <- ggplot(activity.by.day.both,
             aes(x = total_steps))
 p <- p + geom_histogram(binwidth = 2000) + facet_grid(dataset ~ .)
 p
+```
+
+```{r}
+ggplot(activity.by.day.both, aes(x = date, y = total_steps, color = dataset)) + geom_point() + geom_line()
+```
+
+```{r}
+mfrm <- merge(activity.by.day.filled, activity.by.day, by = "date", suffix = c(".filled", ".original"))
+ggplot(mfrm, aes(x = date, y = total_steps.filled - total_steps.original)) + geom_point() + geom_line()
+ggplot(mfrm, aes(x = total_steps.filled - total_steps.original)) + geom_histogram(binwidth = 2000)
 ```
 
 ```{r}

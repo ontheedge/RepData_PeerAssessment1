@@ -3,6 +3,22 @@
 
 ```r
 library(dplyr)
+```
+
+```
+## 
+## Attaching package: 'dplyr'
+## 
+## The following object is masked from 'package:stats':
+## 
+##     filter
+## 
+## The following objects are masked from 'package:base':
+## 
+##     intersect, setdiff, setequal, union
+```
+
+```r
 library(ggplot2)
 ```
 
@@ -240,6 +256,8 @@ p
 ![](PA1_template_files/figure-html/unnamed-chunk-12-1.png) 
 
 
+
+
 ```r
 mean(activity.by.day$total_steps)
 ```
@@ -276,14 +294,36 @@ median(activity.by.day.filled$total_steps)
 
 
 ```r
-p <- ggplot(rbind(cbind(dataset = "original", activity.by.day),
-                  cbind(dataset = "filed", activity.by.day.filled)),
+activity.by.day.both <- rbind(cbind(dataset = "original", activity.by.day),
+                  cbind(dataset = "filed", activity.by.day.filled))
+p <- ggplot(activity.by.day.both,
             aes(x = total_steps))
 p <- p + geom_histogram(binwidth = 2000) + facet_grid(dataset ~ .)
 p
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-14-1.png) 
+![](PA1_template_files/figure-html/unnamed-chunk-15-1.png) 
+
+
+```r
+ggplot(activity.by.day.both, aes(x = date, y = total_steps, color = dataset)) + geom_point() + geom_line()
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-16-1.png) 
+
+
+```r
+mfrm <- merge(activity.by.day.filled, activity.by.day, by = "date", suffix = c(".filled", ".original"))
+ggplot(mfrm, aes(x = date, y = total_steps.filled - total_steps.original)) + geom_point() + geom_line()
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-17-1.png) 
+
+```r
+ggplot(mfrm, aes(x = total_steps.filled - total_steps.original)) + geom_histogram(binwidth = 2000)
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-17-2.png) 
 
 
 ```r
@@ -294,7 +334,7 @@ p <- p + geom_density(binwidth = 2000)
 p
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-15-1.png) 
+![](PA1_template_files/figure-html/unnamed-chunk-18-1.png) 
 
 #### Description of the difference
 

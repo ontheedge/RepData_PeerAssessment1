@@ -1,0 +1,102 @@
+```{r}
+library(dplyr)
+library(ggplot2)
+```
+
+```{r}
+activity <- read.csv(unz("activity.zip", "activity.csv"), colClasses = list(date = "Date"))
+
+# Convert the intervals column into a factor, 
+# so that during plotting/processing we won't treat them as integer numbers.
+# (ie. we make the distance between 1155 and 1200 equal to the distance between 1145 and 1150)
+# Also make the interval labels a bit more human-readable.
+activity$interval <- factor(sprintf("%04d", activity$interval))
+```
+
+### Missing values / imputation
+
+* We either have all intervals for a day or none
+* There are 8 days missing in total
+    * Two of them are next to each other so it might be dependent?
+
+```{r}
+ggplot(summarize(group_by(activity, date), miss_count = sum(is.na(steps))), aes(date, miss_count)) + geom_bar(stat = "identity")
+summarize(group_by(activity, date), miss_count = sum(is.na(steps)))$miss_count
+```
+
+```{r}
+summarize(group_by(activity, interval), miss_count = sum(is.na(steps)))$miss_count
+```
+
+#### Are close to zeroes a miss too?
+
+```{r}
+ggplot(summarize(group_by(activity, date), s = sum(steps)), aes(date, s)) + geom_line(group = 1)
+```
+
+```{r}
+sfrm <- summarize(group_by(activity, date), S = sum(steps, na.rm = T), missing = sum(is.na(steps)) == 288)
+ggplot(sfrm, aes(date, S)) + geom_line() + geom_point(aes(color = missing), size = 3) + scale_color_manual(values = c("black", "orange"))
+```
+
+#### Are misses/lows timeseries-dependent?
+
+```{r}
+ggplot(sfrm, aes(x = S, y = lag(S, 1), color = missing)) + geom_point(size = 3) + scale_color_manual(values = c("black", "orange")) + stat_smooth(method = lm)
+```
+
+```{r}
+ggplot(sfrm, aes(x = S, y = lag(S, 1))) + geom_point(size = 3) + scale_color_manual(values = c("black", "orange")) + stat_smooth(method = lm)
+```
+
+#### How does the time series look like if we impute the average day
+
+```{r}
+sort(sfrm$S)
+```
+
+```{r}
+sfrm$low.or.0 <- sfrm$S <= 126
+M <- mean(sfrm$S[!sfrm$low.or.0])
+sfrm$imp <- ifelse(sfrm$low.or.0, M, sfrm$S)
+```
+
+```{r}
+ggplot(sfrm, aes(date, imp)) + geom_line() + geom_point(aes(color = missing), size = 3) + scale_color_manual(values = c("black", "orange"))
+```
+
+Interploation would we nicer maybe, but oh well...
+
+#### Are missings and zeros/lows consistent on the interval-series level?
+
+```{r}
+plot(activity$step)
+```
+
+```{r}
+activity$timestamp <- as.POSIXct(strptime(paste(activity$date, activity$interval), format = "%Y-%m-%d %H%M", tz = "UTC"))
+ggplot(activity, aes(timestamp, steps)) + geom_line()
+```
+
+```{r fig.width = 16, fig.height = 8}
+arrange(filter(sfrm, low.or.0), date)
+frm <- filter(activity, date %in% as.Date(c("2012-10-01", "2012-10-02", "2012-10-03")))
+ggplot(frm, aes(timestamp, steps)) + geom_line() + geom_point()
+
+frm <- filter(activity, date %in% as.Date(c("2012-10-07", "2012-10-08", "2012-10-09")))
+ggplot(frm, aes(timestamp, steps)) + geom_line() + geom_point()
+
+frm <- filter(activity, date %in% as.Date(c("2012-10-31", "2012-11-01", "2012-11-02", "2012-11-03", "2012-11-04", "2012-11-05")))
+ggplot(frm, aes(timestamp, steps)) + geom_line() + geom_point()
+
+frm <- filter(activity, date %in% as.Date(c("2012-11-08", "2012-11-09", "2012-11-10", "2012-11-11", "2012-11-12")))
+ggplot(frm, aes(timestamp, steps)) + geom_line() + geom_point()
+
+frm <- filter(activity, date %in% as.Date(c("2012-11-13", "2012-11-14", "2012-11-15", "2012-11-16")))
+ggplot(frm, aes(timestamp, steps)) + geom_line() + geom_point()
+
+
+frm <- filter(activity, date %in% as.Date(c("2012-11-28", "2012-11-29", "2012-11-30")))
+ggplot(frm, aes(timestamp, steps)) + geom_line() + geom_point()
+```
+
