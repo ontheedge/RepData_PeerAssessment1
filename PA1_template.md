@@ -288,6 +288,7 @@ p
 Considering everything in the previous section, the solution will replace all 10 days (marked with red) with the "average" day.
 Note that:
 
+* The average days is constructed from all the intervals on the "other" days. Remember from above, that all these days have all their intervals measured, so there will be no calculation problem arising from this.
 * This might or might not be considered doing more than what the exercise prompts because it only mentioned strictly NA data (8 such days out of 10 filled). But we should consider extreme low days (2 out of 10) as "almost NA" too.
 * We could try to come up with a more advanced interpolating scheme but that's beyond the point of this exercise.
 * In the end it might actually be better to remove these days from the data instead of replacing it with the average day, if we submit to the argument that NA days don't let us learn anything about the subjects activity patterns on the rest of the days.
@@ -296,36 +297,48 @@ Note that:
 
 
 ```r
+# These are the days we would ultimately want to
+# a) discard when calculating the average day and
+# b) replace all their intervals with the average day's intervals
+invalid.days <- activity.missings$date[activity.missings$na.or.low]
+
+average.day.intervals <- summarize(group_by(filter(activity, !date %in% invalid.days), interval),
+                                   avg_steps = mean(steps))
+
 # Add a new temporary column (avg_steps) to the activity dataframe.
 # It augments each row in the original dataset with the interval-average for the row's interval.
-activity.filled <- merge(activity, 
-                         summarize(group_by(activity, interval),
-                                   avg_steps = mean(steps, na.rm = TRUE)))
+activity.filled <- merge(activity, average.day.intervals)
 
 # Use avg_steps to fill in missig values in steps column
-activity.filled$steps <- ifelse(is.na(activity.filled$steps),
+activity.filled$steps <- ifelse(activity.filled$date %in% invalid.days,
                                 activity.filled$avg_steps,
                                 activity.filled$steps)
 
-# Remove the temporary column
-activity.filled$avg_steps <- NULL
+# Quick summary of what we got
 summary(activity.filled)
 ```
 
 ```
-##     interval         steps             date           
-##  0000   :   61   Min.   :  0.00   Min.   :2012-10-01  
-##  0005   :   61   1st Qu.:  0.00   1st Qu.:2012-10-16  
-##  0010   :   61   Median :  0.00   Median :2012-10-31  
-##  0015   :   61   Mean   : 37.38   Mean   :2012-10-31  
-##  0020   :   61   3rd Qu.: 27.00   3rd Qu.:2012-11-15  
-##  0025   :   61   Max.   :806.00   Max.   :2012-11-30  
+##     interval         steps             date              avg_steps      
+##  0000   :   61   Min.   :  0.00   Min.   :2012-10-01   Min.   :  0.000  
+##  0005   :   61   1st Qu.:  0.00   1st Qu.:2012-10-16   1st Qu.:  2.583  
+##  0010   :   61   Median :  0.00   Median :2012-10-31   Median : 35.451  
+##  0015   :   61   Mean   : 38.84   Mean   :2012-10-31   Mean   : 38.837  
+##  0020   :   61   3rd Qu.: 32.73   3rd Qu.:2012-11-15   3rd Qu.: 54.907  
+##  0025   :   61   Max.   :806.00   Max.   :2012-11-30   Max.   :214.255  
 ##  (Other):17202
+```
+
+```r
+# Remove temporary data
+activity.filled$avg_steps <- NULL
+rm(invalid.days)
+rm(average.day.intervals)
 ```
 
 ### Compare filled dataset with original one
 
-#### Statistics about the filled dataset
+#### Distribution of the filled dataset
 
 
 ```r
@@ -334,8 +347,8 @@ activity.by.day.filled <- summarize(group_by(activity.filled, date), total_steps
 p <- ggplot(activity.by.day.filled, aes(x = total_steps))
 p <- p + geom_histogram(binwidth = 2000, color = "black", fill = "lightblue")
 p <- p + scale_x_continuous(breaks = seq(0, 22000, 2000))
-p <- p + scale_y_continuous(breaks = seq(0, 16, 4))
-p <- p + ggtitle("Distribution of Daily Total Steps after imputation\n Bin width at 2000 steps")
+p <- p + scale_y_continuous(breaks = seq(0, 24, 4))
+p <- p + ggtitle("Distribution of Daily Total Steps After Imputation\n Bin width at 2000 steps")
 p <- p + xlab("Daily Steps") + ylab("Counts")
 p <- p + theme_bw()
 p
@@ -343,112 +356,65 @@ p
 
 ![](PA1_template_files/figure-html/unnamed-chunk-16-1.png) 
 
+#### Comparison statistics
 
-
-
-```r
-mean(activity.by.day$total_steps)
-```
-
-```
-## [1] NA
-```
-
-```r
-median(activity.by.day$total_steps)
-```
-
-```
-## [1] NA
-```
-
-```r
-mean(activity.by.day.filled$total_steps)
-```
-
-```
-## [1] 10766.19
-```
-
-```r
-median(activity.by.day.filled$total_steps)
-```
-
-```
-## [1] 10766.19
-```
-
-#### Visualization of the difference
+The means and medians of dataset before and after imputation (labeled Original and Filled below):
 
 
 ```r
-activity.by.day.both <- rbind(cbind(dataset = "original", activity.by.day),
-                  cbind(dataset = "filed", activity.by.day.filled))
-p <- ggplot(activity.by.day.both,
-            aes(x = total_steps))
-p <- p + geom_histogram(binwidth = 2000) + facet_grid(dataset ~ .)
-p
+activity.by.day.both <- rbind(cbind(Dataset = "Original", activity.by.day),
+                              cbind(Dataset = "Filled", activity.by.day.filled))
+summarize(group_by(activity.by.day.both, Dataset), mean = mean(total_steps, na.rm = T), median = median(total_steps, na.rm = T))
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-19-1.png) 
+```
+## Source: local data frame [2 x 3]
+## 
+##    Dataset     mean   median
+## 1 Original 10766.19 10765.00
+## 2   Filled 11185.12 11185.12
+```
+
+The estimate of the central tendency changed a bit:
+
+* First it increased slightly (the Filled means are higher) because the two low-activity days were removed.
+* Also it became more centralized (the Filled mean and median are now the same) because the way we imputed was putting more values exactly into the mean.
+* A more detailed picture could be gleaned from the 5-number summary of the two datasets and by superimosing the two distributions on top of each other:
 
 
 ```r
-ggplot(activity.by.day.both, aes(x = date, y = total_steps, color = dataset)) + geom_point() + geom_line()
+summary(activity.by.day$total_steps)
 ```
 
 ```
-## Warning: Removed 8 rows containing missing values (geom_point).
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA's 
+##      41    8841   10760   10770   13290   21190       8
+```
+
+```r
+summary(activity.by.day.filled$total_steps)
 ```
 
 ```
-## Warning: Removed 2 rows containing missing values (geom_path).
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##    2492   10060   11190   11190   12810   21190
 ```
-
-![](PA1_template_files/figure-html/unnamed-chunk-20-1.png) 
 
 
 ```r
-mfrm <- merge(activity.by.day.filled, activity.by.day, by = "date", suffix = c(".filled", ".original"))
-ggplot(mfrm, aes(x = date, y = total_steps.filled - total_steps.original)) + geom_point() + geom_line()
-```
-
-```
-## Warning: Removed 8 rows containing missing values (geom_point).
-```
-
-```
-## Warning: Removed 2 rows containing missing values (geom_path).
-```
-
-![](PA1_template_files/figure-html/unnamed-chunk-21-1.png) 
-
-```r
-ggplot(mfrm, aes(x = total_steps.filled - total_steps.original)) + geom_histogram(binwidth = 2000)
-```
-
-![](PA1_template_files/figure-html/unnamed-chunk-21-2.png) 
-
-
-```r
-p <- ggplot(rbind(cbind(dataset = "original", activity.by.day),
-                  cbind(dataset = "filed", activity.by.day.filled)),
-            aes(x = total_steps, color = dataset))
-p <- p + geom_density(binwidth = 2000)
-p
+p <- ggplot(activity.by.day.both, aes(x = total_steps, linetype = Dataset))
+p <- p + geom_density(size = 1.5, adjust = .9)
+p <- p + scale_x_continuous(breaks = seq(0, 22000, 2000))
+p <- p + ggtitle("Distribution of Daily Total Steps Before and After Imputation")
+p <- p + xlab("Daily Steps") + ylab("Density")
+p + theme_bw()
 ```
 
 ```
 ## Warning: Removed 8 rows containing non-finite values (stat_density).
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-22-1.png) 
-
-#### Description of the difference
-
-Conclude what the difference is.
-
-....
+![](PA1_template_files/figure-html/unnamed-chunk-19-1.png) 
 
 ## Are there differences in activity patterns between weekdays and weekends?
 

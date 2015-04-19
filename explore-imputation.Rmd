@@ -100,3 +100,33 @@ frm <- filter(activity, date %in% as.Date(c("2012-11-28", "2012-11-29", "2012-11
 ggplot(frm, aes(timestamp, steps)) + geom_line() + geom_point()
 ```
 
+### 8 vs 10 rm
+
+```{r}
+# Helper dataset for missing-value analysis
+activity.missings <- summarize(group_by(activity, date),
+                               total_steps = sum(steps),
+                               na_count = sum(is.na(steps)),
+                               non_zero_count = sum(steps != 0))
+```
+
+```{r}
+# Add some helper columns and backfill NA's for plotting
+activity.missings$na.or.low <- (activity.missings$na_count == 288 | activity.missings$non_zero_count <= 2)
+activity.missings[is.na(activity.missings)] <- 0
+activity.missings$is.monday <- weekdays(activity.missings$date) == "Monday"
+```
+
+
+```{r}
+invalid.days <- activity.missings$date[activity.missings$na.or.low]
+```
+
+```{r}
+summarize(group_by(activity, interval), avg_steps = mean(steps, na.rm = TRUE))
+hist(summarize(group_by(activity, interval), avg_steps = mean(steps, na.rm = TRUE))$avg_steps)
+
+summarize(group_by(filter(activity, !date %in% invalid.days), interval), avg_steps = mean(steps))
+hist(summarize(group_by(filter(activity, !date %in% invalid.days), interval), avg_steps = mean(steps))$avg_steps)
+```
+
