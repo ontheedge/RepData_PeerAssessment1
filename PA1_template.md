@@ -199,37 +199,98 @@ prop.table(table(is.na(activity$steps)))
 ## 0.8688525 0.1311475
 ```
 
-13% is missing in the whole dataset.
+~13% of step values are missing from the whole dataset.
 
 ### Imputation strategy
 
-For each missing day/interval combination we should provide a value. Straighforward approaches would be:
-
-* If an interval `x` is missing on a given day `y`, use the average of (non-missing intervals') steps on day `y` to fill.
-* If an interval `x` is missing on a given day `y`, use the average of steps at interval `x` over the other days (where interval `x` is not missing).
-* For averages we could use either the mean or the median.
-
-To see why we can't use the the first approach, consider the following plot:
+#### Missing values distribution
 
 
 ```r
-p <- ggplot(activity, aes(y = date, x = interval, fill = steps))
-p <- p + geom_tile() 
-p <- p + scale_x_discrete(breaks = c("0200", "0400", "0600", "0800", 1000, 1200, 1400, 1600, 1800, 2000, 2200))
-p <- p + scale_fill_continuous(na.value = "orange")
-p <- p + ggtitle("Steps by Day and Interval")
-p <- p + xlab("Interval \n(format HHMM)") + ylab("Date")
-p <- p + theme_bw()
+# Helper dataset for missing-value analysis
+activity.missings <- summarize(group_by(activity, date),
+                               total_steps = sum(steps),
+                               na_count = sum(is.na(steps)),
+                               non_zero_count = sum(steps != 0))
+```
+
+The patterns for missing data is not random. For a given day in the original dataset, we either have data for all intervals, or we have none. This can be observed by the following list, which counts for each consecutive day the number of NA observations we have for it:
+
+
+```r
+arrange(activity.missings, date)$na_count
+```
+
+```
+##  [1] 288   0   0   0   0   0   0 288   0   0   0   0   0   0   0   0   0
+## [18]   0   0   0   0   0   0   0   0   0   0   0   0   0   0 288   0   0
+## [35] 288   0   0   0   0 288 288   0   0   0 288   0   0   0   0   0   0
+## [52]   0   0   0   0   0   0   0   0   0 288
+```
+
+There are 8 days in total which are fully missing.
+
+Another source of bias could be that there are two days which have an unusally low total step count:
+
+
+```r
+head(arrange(activity.missings, total_steps))
+```
+
+```
+## Source: local data frame [6 x 4]
+## 
+##         date total_steps na_count non_zero_count
+## 1 2012-11-15          41        0              2
+## 2 2012-10-02         126        0              2
+## 3 2012-10-25        2492        0             44
+## 4 2012-11-08        3219        0             52
+## 5 2012-11-20        4472        0             47
+## 6 2012-10-29        5018        0             62
+```
+
+These low step count days also have only two intervals that have non-zero measurements (`non_zero_count` column above).
+
+Adding these to the all-missing days, we now have 10 potentially invalid days in the data.  
+This is now 20% of the whole dataset.
+
+To see the trend for where these days are in the time series, consider the following plot:
+
+
+```r
+# Add some helper columns and backfill NA's for plotting
+activity.missings$na.or.low <- (activity.missings$na_count == 288 | activity.missings$non_zero_count <= 2)
+activity.missings[is.na(activity.missings)] <- 0
+activity.missings$is.monday <- weekdays(activity.missings$date) == "Monday"
+```
+
+
+```r
+p <- ggplot(activity.missings, aes(date, total_steps)) 
+p <- p + geom_line()
+p <- p + geom_point(aes(color = na.or.low), size = 3)
+p <- p + scale_color_manual(values = c("black", "red")) 
+p <- p + scale_x_date(breaks = activity.missings$date[activity.missings$is.monday])
+p <- p + theme_bw() + theme(panel.grid.major = element_line(linetype = "dashed", color = "black"))
+p <- p + ggtitle("Time series Trend of Total Daily Steps\n Red markers at days with all-missing or extreme low step-count data\nHorizontal gridlines mark Mondays")
+p <- p + guides(color = FALSE) + xlab("Date") + ylab("Total Steps\n(or 0 if day missing)")
 p
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-10-1.png) 
+![](PA1_template_files/figure-html/unnamed-chunk-14-1.png) 
 
-This plot is a heatmap of the day vs. interval matrix with orange cells marking missing values. Since the missing values are conditional on the day, we should use the interval averages for imputation.
+* From this trend-plot we can see the missing/invalid days don't all fall on the same days of the week.
+* But they tend to come in pairs and at least in some of the cases the missing days are hugged by relativlty lower stepcount days. This might mean that the subject didn't use the measurement device for an extended period of time.
+* We could argue that the first two days (and maybe the last day) could be removed from the dataset altogether.
 
-For the average we will use the mean instead of the median. This is partly arbirtrary and partly suggested by the mean being the best point estimate from a sample to a popluation of measurements.
+#### Imputation strategy decision
 
-(Aboue the plot: note that reversing the Date axis would make more sense for a chronological order, but leaving it like this just leaves us with a bit of annoyance; it doesn't influence the purpose of the analysis.)
+Considering everything in the previous section, the solution will replace all 10 days (marked with red) with the "average" day.
+Note that:
+
+* This might or might not be considered doing more than what the exercise prompts because it only mentioned strictly NA data (8 such days out of 10 filled). But we should consider extreme low days (2 out of 10) as "almost NA" too.
+* We could try to come up with a more advanced interpolating scheme but that's beyond the point of this exercise.
+* In the end it might actually be better to remove these days from the data instead of replacing it with the average day, if we submit to the argument that NA days don't let us learn anything about the subjects activity patterns on the rest of the days.
 
 ### Create filled dataset
 
@@ -280,7 +341,7 @@ p <- p + theme_bw()
 p
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-12-1.png) 
+![](PA1_template_files/figure-html/unnamed-chunk-16-1.png) 
 
 
 
@@ -329,7 +390,7 @@ p <- p + geom_histogram(binwidth = 2000) + facet_grid(dataset ~ .)
 p
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-15-1.png) 
+![](PA1_template_files/figure-html/unnamed-chunk-19-1.png) 
 
 
 ```r
@@ -344,7 +405,7 @@ ggplot(activity.by.day.both, aes(x = date, y = total_steps, color = dataset)) + 
 ## Warning: Removed 2 rows containing missing values (geom_path).
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-16-1.png) 
+![](PA1_template_files/figure-html/unnamed-chunk-20-1.png) 
 
 
 ```r
@@ -360,13 +421,13 @@ ggplot(mfrm, aes(x = date, y = total_steps.filled - total_steps.original)) + geo
 ## Warning: Removed 2 rows containing missing values (geom_path).
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-17-1.png) 
+![](PA1_template_files/figure-html/unnamed-chunk-21-1.png) 
 
 ```r
 ggplot(mfrm, aes(x = total_steps.filled - total_steps.original)) + geom_histogram(binwidth = 2000)
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-17-2.png) 
+![](PA1_template_files/figure-html/unnamed-chunk-21-2.png) 
 
 
 ```r
@@ -381,7 +442,7 @@ p
 ## Warning: Removed 8 rows containing non-finite values (stat_density).
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-18-1.png) 
+![](PA1_template_files/figure-html/unnamed-chunk-22-1.png) 
 
 #### Description of the difference
 
