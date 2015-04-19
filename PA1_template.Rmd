@@ -265,12 +265,21 @@ p + theme_bw()
 
 ## Are there differences in activity patterns between weekdays and weekends?
 
-```
-mfrm$weekday <- ifelse(weekdays(mfrm$date) %in% c("Saturday", "Sunday"), "Weekend", "Weekday")
-sfrm.intervals <- summarize(group_by(mfrm, interval, weekday), avg_steps = mean(steps, na.rm = TRUE))
-ggplot(sfrm.intervals, aes(x = interval, y = avg_steps)) + geom_point() + scale_x_discrete(breaks = c("0600", 1200, 1800)) + facet_grid(weekday ~ .) + geom_line(aes(group = 1))
+```{r fig.width = 13, fig.height = 11}
+activity.filled$weekday <- ifelse(weekdays(activity.filled$date) %in% c("Saturday", "Sunday"), "Weekend", "Weekday")
+
+p <- ggplot(summarize(group_by(activity.filled, interval, weekday), avg_steps = mean(steps)),
+            aes(x = interval, y = avg_steps))
+p <- p + geom_point() + geom_line(aes(group = 1))
+p <- p + scale_x_discrete(breaks = c("0200", "0400", "0600", "0800", 1000, 1200, 1400, 1600, 1800, 2000, 2200))
+p <- p + ggtitle("Average Daily Steps By Interval \n Conditional on Weekday/Weekend")
+p <- p + xlab("Interval \n(format HHMM)") + ylab("Average Steps across All Days")
+p <- p + theme_bw() 
+p <- p + facet_grid(weekday ~ .)
+p <- p + theme(strip.text = element_text(size=rel(1.2)), 
+               strip.background = element_rect(fill="lightblue"))
+p
 ```
 
-```
-ggplot(sfrm.intervals, aes(x = interval, y = avg_steps, color = weekday)) + geom_point() + scale_x_discrete(breaks = c("0600", 1200, 1800)) + geom_line(aes(group = weekday))
-```
+We can observe some interesting patterns about the difference.  
+A more telling picture would be the actual difference plot between these two panels. But we leave this exercise for a future exploration.

@@ -22,3 +22,16 @@ This plot is a heatmap of the day vs. interval matrix with orange cells marking 
 For the average we will use the mean instead of the median. This is partly arbirtrary and partly suggested by the mean being the best point estimate from a sample to a popluation of measurements.
 
 (Aboue the plot: note that reversing the Date axis would make more sense for a chronological order, but leaving it like this just leaves us with a bit of annoyance; it doesn't influence the purpose of the analysis.)
+
+
+--------------
+
+```
+mfrm$weekday <- ifelse(weekdays(mfrm$date) %in% c("Saturday", "Sunday"), "Weekend", "Weekday")
+sfrm.intervals <- summarize(group_by(mfrm, interval, weekday), avg_steps = mean(steps, na.rm = TRUE))
+ggplot(sfrm.intervals, aes(x = interval, y = avg_steps)) + geom_point() + scale_x_discrete(breaks = c("0600", 1200, 1800)) + facet_grid(weekday ~ .) + geom_line(aes(group = 1))
+```
+
+```
+ggplot(sfrm.intervals, aes(x = interval, y = avg_steps, color = weekday)) + geom_point() + scale_x_discrete(breaks = c("0600", 1200, 1800)) + geom_line(aes(group = weekday))
+```
