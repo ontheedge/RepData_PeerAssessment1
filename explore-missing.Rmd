@@ -1,0 +1,51 @@
+```{r}
+library(dplyr)
+library(ggplot2)
+library(car)
+```
+
+```{r}
+activity <- read.csv(unz("activity.zip", "activity.csv"), colClasses = list(date = "Date"))
+
+# Convert the intervals column into a factor, 
+# so that during plotting/processing we won't treat them as integer numbers.
+# (ie. we make the distance between 1155 and 1200 equal to the distance between 1145 and 1150)
+# Also make the interval labels a bit more human-readable.
+activity$interval <- factor(sprintf("%04d", activity$interval))
+```
+
+```{r echo = FALSE}
+activity.by.day <- summarize(group_by(activity, date), total_steps = sum(steps, na.rm = TRUE))
+
+p <- ggplot(activity.by.day, aes(x = total_steps))
+p <- p + geom_histogram(binwidth = 2000, color = "black", fill = "lightblue")
+p <- p + scale_x_continuous(breaks = seq(0, 22000, 2000))
+p <- p + scale_y_continuous(breaks = seq(0, 16, 4))
+p <- p + ggtitle("Distribution of Daily Total Steps \n Bin width at 2000 steps")
+p <- p + xlab("Daily Steps") + ylab("Counts")
+p <- p + theme_bw()
+p
+
+summary(activity.by.day$total_steps)
+```
+
+
+```{r echo = FALSE}
+activity.by.day <- summarize(group_by(activity, date), total_steps = sum(steps))
+
+p <- ggplot(activity.by.day, aes(x = total_steps))
+p <- p + geom_histogram(binwidth = 2000, color = "black", fill = "lightblue")
+p <- p + scale_x_continuous(breaks = seq(0, 22000, 2000))
+p <- p + scale_y_continuous(breaks = seq(0, 16, 4))
+p <- p + ggtitle("Distribution of Daily Total Steps \n Bin width at 2000 steps")
+p <- p + xlab("Daily Steps") + ylab("Counts")
+p <- p + theme_bw()
+p
+
+summary(activity.by.day$total_steps)
+```
+
+```{r}
+qqPlot(summarize(group_by(activity, date), total_steps = sum(steps, na.rm = TRUE))$total_steps)
+qqPlot(summarize(group_by(activity, date), total_steps = sum(steps))$total_steps)
+```

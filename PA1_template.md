@@ -73,7 +73,7 @@ summary(activity)
 
 
 ```r
-activity.by.day <- summarize(group_by(activity, date), total_steps = sum(steps, na.rm = TRUE))
+activity.by.day <- summarize(group_by(activity, date), total_steps = sum(steps))
 
 p <- ggplot(activity.by.day, aes(x = total_steps))
 p <- p + geom_histogram(binwidth = 2000, color = "black", fill = "lightblue")
@@ -87,26 +87,53 @@ p
 
 ![](PA1_template_files/figure-html/unnamed-chunk-5-1.png) 
 
-### The mean and the median of the distribution
+Note: the missing values are automatically discarded from the plot.
+
+### The central tendency of the distribution
+
+#### Mean and median values
 
 
 ```r
-mean(activity.by.day$total_steps)
+mean(activity.by.day$total_steps, na.rm = TRUE)
 ```
 
 ```
-## [1] 9354.23
+## [1] 10766.19
 ```
 
 ```r
-median(activity.by.day$total_steps)
+median(activity.by.day$total_steps, na.rm = TRUE)
 ```
 
 ```
-## [1] 10395
+## [1] 10765
 ```
+
+The mean and the median are really close to each other, this is a sign of a well-centralized distribution.  
+
+#### About interpreting the central tendency
+
+The anonymous person generating this data is a yardstick for a healthy individual according to the Internet :)  
+His/her 10000 average daily steps is at the level that's encouraged maybe not by medical professionals, but at least by pedometer vendors. Speaking from personal experience, it's not an easy goal to achieve consistently.  
+Here are some articles on the subject:
+
+* [fitbit blog](http://blog.fitbit.com/fitbit2014-challenge-week-1-take-2000-more-steps-every-day-this-week/) -- "The average Australian takes 9,695 steps per day, the average Japanese 7,168, and the average Swiss 9,650, while the average American takes only 5,117 steps per day."
+* [The Truth about '10,000 Steps' a Day](http://www.livescience.com/43956-walking-10000-steps-healthy.html) -- "Studies conducted since then suggest that people who increased their walking to 10,000 steps daily experience health benefits."
+* [The Walking Site](http://www.thewalkingsite.com/10000steps.html) -- "A sedentary person may only average 1,000 to 3,000 steps a day. For these people adding steps has many health benefits."
+* [WebMD](http://blogs.webmd.com/womens-health/2014/10/10k-steps-a-day-a-realistic-goal.html) -- "Is there any evidence from studies to show that taking 10,000 steps a day really works for people? Do they lose weight? Are they healthier?"
+
+#### About calculating the central tendency
+
+Note that in these summary calculations we had to discard missing values explicitly.  
+The alternative would have been to ignore the missings during the group_by summing, but then some days would have had zero total steps, but:
+
+* in this case the distribution would have had a negative skew coming from this "automatic" imputation.
+* And this would have been slightly incorrect because for each day we either have all intervals filled in or no intervals filled in (see more at the imputation strategy section below) so it doesn't make sense to assign zero to the missing days.
 
 ## What is the average daily activity pattern?
+
+### Time series plot of average steps per interval
 
 
 ```r
@@ -263,7 +290,7 @@ mean(activity.by.day$total_steps)
 ```
 
 ```
-## [1] 9354.23
+## [1] NA
 ```
 
 ```r
@@ -271,7 +298,7 @@ median(activity.by.day$total_steps)
 ```
 
 ```
-## [1] 10395
+## [1] NA
 ```
 
 ```r
@@ -309,12 +336,28 @@ p
 ggplot(activity.by.day.both, aes(x = date, y = total_steps, color = dataset)) + geom_point() + geom_line()
 ```
 
+```
+## Warning: Removed 8 rows containing missing values (geom_point).
+```
+
+```
+## Warning: Removed 2 rows containing missing values (geom_path).
+```
+
 ![](PA1_template_files/figure-html/unnamed-chunk-16-1.png) 
 
 
 ```r
 mfrm <- merge(activity.by.day.filled, activity.by.day, by = "date", suffix = c(".filled", ".original"))
 ggplot(mfrm, aes(x = date, y = total_steps.filled - total_steps.original)) + geom_point() + geom_line()
+```
+
+```
+## Warning: Removed 8 rows containing missing values (geom_point).
+```
+
+```
+## Warning: Removed 2 rows containing missing values (geom_path).
 ```
 
 ![](PA1_template_files/figure-html/unnamed-chunk-17-1.png) 
@@ -332,6 +375,10 @@ p <- ggplot(rbind(cbind(dataset = "original", activity.by.day),
             aes(x = total_steps, color = dataset))
 p <- p + geom_density(binwidth = 2000)
 p
+```
+
+```
+## Warning: Removed 8 rows containing non-finite values (stat_density).
 ```
 
 ![](PA1_template_files/figure-html/unnamed-chunk-18-1.png) 
